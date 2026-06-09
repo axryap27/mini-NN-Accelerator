@@ -1,0 +1,33 @@
+# Xcelium / xrun simulation artifacts
+xcelium.d/
+xrun.history
+xrun.log
+*.shm/
+waves.shm/
+.simvision/
+*.dsn
+*.trn
+INCA_libs/
+
+# Genus synthesis artifacts
+genus.cmd*
+genus.log*
+fv/
+.cadence/
+*.rc.log
+
+# Innovus backend artifacts
+*.enc
+*.enc.dat/
+innovus.cmd*
+innovus.log*
+.innovus*
+timingReports/*.tarpt
+timingReports/*.html
+
+# Editor / OS
+*.swp
+.DS_Store
+
+# project instructions for Claude Code (local only)
+docs/CLAUDE.md

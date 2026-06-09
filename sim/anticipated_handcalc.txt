@@ -1,0 +1,47 @@
+HAND-CALC for the corrected testbench stimulus (cycle k == DUT cycle_count == printed cyc).
+
+Stimulus by cycle k (driven before accumulation #k):
+  IN1=k, IN2=k+1, IN3=k+2
+  W1=1+(k%3), W2=2+(k%2), W3=-(1+(k%4))
+
+Operand table (k=1..13):
+ k : IN1 IN2 IN3 | W1 W2 W3
+ 1 :  1   2   3  |  2  3 -2
+ 2 :  2   3   4  |  3  2 -3
+ 3 :  3   4   5  |  1  3 -4
+ 4 :  4   5   6  |  2  2 -1
+ 5 :  5   6   7  |  3  3 -2
+ 6 :  6   7   8  |  1  2 -3
+ 7 :  7   8   9  |  2  3 -4
+ 8 :  8   9  10  |  3  2 -1
+ 9 :  9  10  11  |  1  3 -2
+10 : 10  11  12  |  2  2 -3
+11 : 11  12  13  |  3  3 -4
+12 : 12  13  14  |  1  2 -1
+13 : 13  14  15  |  2  3 -2
+
+PE(r,c) operand at accumulation cycle k:
+  input  = ROWinput[r] delayed by c cycles -> value at index (k-c), or 0 if k-c<1
+  weight = COLweight[c] delayed by r cycles -> value at index (k-r), or 0 if k-r<1
+  where ROWinput[0]=IN1,[1]=IN2,[2]=IN3 ; COLweight[0]=W1,[1]=W2,[2]=W3.
+Accumulate product each cycle for k=1..13 (13 terms); OUT frozen from cyc=13 on.
+
+Per-cycle product contributed and running OUT for each PE:
+
+OUT1 = PE(0,0): IN1(k)*W1(k)
+ k=1: 1*2=2     OUT1=2
+ k=2: 2*3=6     OUT1=8
+ k=3: 3*1=3     OUT1=11
+ k=4: 4*2=8     OUT1=19
+ k=5: 5*3=15    OUT1=34
+ k=6: 6*1=6     OUT1=40
+ k=7: 7*2=14    OUT1=54
+ k=8: 8*3=24    OUT1=78
+ k=9: 9*1=9     OUT1=87
+ k=10:10*2=20   OUT1=107
+ k=11:11*3=33   OUT1=140
+ k=12:12*1=12   OUT1=152
+ k=13:13*2=26   OUT1=178  <- FINAL (holds cyc13..18)
+
+OUT2 = PE(0,1): IN1(k-1)*W2(k)   [input delayed 1 col]
+ k=1: 0*3=0     OUT2=0   (IN1(0)=0)\n k=2: 1*2=2     OUT2=2\n k=3: 2*3=6     OUT2=8\n k=4: 3*2=6     OUT2=14\n k=5: 4*3=12    OUT2=26\n k=6: 5*2=10    OUT2=36\n k=7: 6*3=18    OUT2=54\n k=8: 7*2=14    OUT2=68\n k=9: 8*3=24    OUT2=92\n k=10:9*2=18    OUT2=110\n k=11:10*3=30   OUT2=140\n k=12:11*2=22   OUT2=162\n k=13:12*3=36   OUT2=198  <- FINAL\n\nOUT3 = PE(0,2): IN1(k-2)*W3(k)   [input delayed 2 cols]\n k=1,2: 0          OUT3=0\n k=3: 1*-4=-4      OUT3=-4\n k=4: 2*-1=-2      OUT3=-6\n k=5: 3*-2=-6      OUT3=-12\n k=6: 4*-3=-12     OUT3=-24\n k=7: 5*-4=-20     OUT3=-44\n k=8: 6*-1=-6      OUT3=-50\n k=9: 7*-2=-14     OUT3=-64\n k=10:8*-3=-24     OUT3=-88\n k=11:9*-4=-36     OUT3=-124\n k=12:10*-1=-10    OUT3=-134\n k=13:11*-2=-22    OUT3=-156  <- FINAL\n\nOUT4 = PE(1,0): IN2(k)*W1(k-1)   [weight delayed 1 row]\n k=1: 2*0=0       OUT4=0\n k=2: 3*2=6       OUT4=6\n k=3: 4*3=12      OUT4=18\n k=4: 5*1=5       OUT4=23\n k=5: 6*2=12      OUT4=35\n k=6: 7*3=21      OUT4=56\n k=7: 8*1=8       OUT4=64\n k=8: 9*2=18      OUT4=82\n k=9: 10*3=30     OUT4=112\n k=10:11*1=11     OUT4=123\n k=11:12*2=24     OUT4=147\n k=12:13*3=39     OUT4=186\n k=13:14*1=14     OUT4=200  <- FINAL\n\nOUT5 = PE(1,1): IN2(k-1)*W2(k-1)\n k=1: 0           OUT5=0\n k=2: 2*3=6       OUT5=6\n k=3: 3*2=6       OUT5=12\n k=4: 4*3=12      OUT5=24\n k=5: 5*2=10      OUT5=34\n k=6: 6*3=18      OUT5=52\n k=7: 7*2=14      OUT5=66\n k=8: 8*3=24      OUT5=90\n k=9: 9*2=18      OUT5=108\n k=10:10*3=30     OUT5=138\n k=11:11*2=22     OUT5=160\n k=12:12*3=36     OUT5=196\n k=13:13*2=26     OUT5=222  <- FINAL\n\nOUT6 = PE(1,2): IN2(k-2)*W3(k-1)\n k=1,2: 0         OUT6=0\n k=3: 2*-2=-4     OUT6=-4\n k=4: 3*-3=-9     OUT6=-13\n k=5: 4*-4=-16    OUT6=-29\n k=6: 5*-1=-5     OUT6=-34\n k=7: 6*-2=-12    OUT6=-46\n k=8: 7*-3=-21    OUT6=-67\n k=9: 8*-4=-32    OUT6=-99\n k=10:9*-1=-9     OUT6=-108\n k=11:10*-2=-20   OUT6=-128\n k=12:11*-3=-33   OUT6=-161\n k=13:12*-4=-48   OUT6=-209  <- FINAL\n\nOUT7 = PE(2,0): IN3(k)*W1(k-2)   [weight delayed 2 rows]\n k=1,2: 0         OUT7=0\n k=3: 5*2=10      OUT7=10\n k=4: 6*3=18      OUT7=28\n k=5: 7*1=7       OUT7=35\n k=6: 8*2=16      OUT7=51\n k=7: 9*3=27      OUT7=78\n k=8: 10*1=10     OUT7=88\n k=9: 11*2=22     OUT7=110\n k=10:12*3=36     OUT7=146\n k=11:13*1=13     OUT7=159\n k=12:14*2=28     OUT7=187\n k=13:15*3=45     OUT7=232  <- FINAL\n\nOUT8 = PE(2,1): IN3(k-1)*W2(k-2)\n k=1,2: 0         OUT8=0\n k=3: 4*3=12      OUT8=12\n k=4: 5*2=10      OUT8=22\n k=5: 6*3=18      OUT8=40\n k=6: 7*2=14      OUT8=54\n k=7: 8*3=24      OUT8=78\n k=8: 9*2=18      OUT8=96\n k=9: 10*3=30     OUT8=126\n k=10:11*2=22     OUT8=148\n k=11:12*3=36     OUT8=184\n k=12:13*2=26     OUT8=210\n k=13:14*3=42     OUT8=252  <- FINAL\n\nOUT9 = PE(2,2): IN3(k-2)*W3(k-2)\n k=1,2,3: 0       OUT9=0\n k=4: 3*-2=-6     OUT9=-6\n k=5: 4*-3=-12    OUT9=-18\n k=6: 5*-4=-20    OUT9=-38\n k=7: 6*-1=-6     OUT9=-44\n k=8: 7*-2=-14    OUT9=-58\n k=9: 8*-3=-24    OUT9=-82\n k=10:9*-4=-36    OUT9=-118\n k=11:10*-1=-10   OUT9=-128\n k=12:11*-2=-22   OUT9=-150\n k=13:12*-3=-36   OUT9=-186  <- FINAL\n\nFINAL FROZEN OUTPUTS (printed cyc=13 and unchanged through cyc=18):\n  OUT1=178  OUT2=198  OUT3=-156\n  OUT4=200  OUT5=222  OUT6=-209\n  OUT7=232  OUT8=252  OUT9=-186\n\nNote: indices k-c / k-r below 1 use operand 0 (array held reset before cyc=1), so\nearly cycles ramp in as the systolic pipeline fills. Recompute if stimulus changes.

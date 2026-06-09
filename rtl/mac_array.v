@@ -1,29 +1,12 @@
-// ECE 303 Lab 3 -- Top module: 3x3 systolic MAC array (9 PEs).
+// Top module: 3x3 systolic MAC array (9 PEs).
+// Inputs flow left->right along each row (one cycle delay per PE -> IN/INR/INRR),
+// weights flow top->bottom along each column (W/WR/WRR). So PE(r,c) multiplies
+// the row input delayed by c by the column weight delayed by r.
+// OUT1-3 = row0, OUT4-6 = row1, OUT7-9 = row2.
 //
-// DATAFLOW:
-//   Inputs flow LEFT->RIGHT along each row; each PE delays the input 1 cycle
-//   via its in_reg, producing IN->INR->INRR. Row0 uses IN1, Row1 IN2, Row2 IN3.
-//   Weights flow TOP->BOTTOM along each column; each PE delays the weight 1
-//   cycle via its w_reg, producing W->WR->WRR. Col0 uses W1, Col1 W2, Col2 W3.
-//   PE(r,c) therefore multiplies (row-input delayed by c) * (col-weight delayed by r).
-//
-// OUT MAP: OUT1..OUT3 = row0 (cols 0,1,2); OUT4..OUT6 = row1; OUT7..OUT9 = row2.
-//
-// FREEZE LOGIC (spec item c): "At the clock cycle of 13, the MAC output will not
-//   change any more. The OUT value will remain constant until reset."
-//   Implementation = a single GLOBAL cycle counter from reset. We accumulate while
-//   (cycle_count < FREEZE_CYCLE). The counter starts at 0 the cycle after reset
-//   release and increments each clock. With FREEZE_CYCLE=13 the accumulate_enable
-//   is asserted during counts 0..12 (i.e. 13 accumulation cycles); on the count
-//   that reaches 13 accumulate_enable goes low, so OUT holds constant AT cycle 13
-//   and thereafter -- the literal reading of the spec. GLOBAL (single counter,
-//   one cycle number 13 for the whole array), NOT per-PE staggered.
-//   BOUNDARY (confirmed): accumulate on counter values 0..12 = 13 accumulations;
-//   OUT is final after the 13th accumulation and holds at counter==13. The
-//   counter SATURATES at FREEZE_CYCLE (never wraps), so acc has no further write
-//   path and OUT stays constant until rstb. CNT_W=5 covers counts 0..31.
-//   TODO(verify): confirm against the handout that 13 accumulations (not 12) is
-//   the intended final-value definition; spec gives no explicit < vs <=.
+// Freeze: spec says the output stops changing at clock cycle 13. A single global
+// counter runs from reset; we accumulate while cycle_count < FREEZE_CYCLE, then the
+// counter holds and the outputs stay constant until rstb.
 `timescale 1ns/10ps
 module mac_array #(
     parameter DATA_W       = 8,
@@ -33,53 +16,41 @@ module mac_array #(
     parameter FREEZE_CYCLE = 13
 )(
     input  wire                    clk,
-    input  wire                    rstb,            // active-LOW reset
-    input  wire signed [DATA_W-1:0] IN1, IN2, IN3,  // one input stream per ROW
-    input  wire signed [DATA_W-1:0] W1,  W2,  W3,   // one weight stream per COLUMN
-    output wire signed [ACC_W-1:0]  OUT1, OUT2, OUT3, // row0
-    output wire signed [ACC_W-1:0]  OUT4, OUT5, OUT6, // row1
-    output wire signed [ACC_W-1:0]  OUT7, OUT8, OUT9  // row2
+    input  wire                    rstb,
+    input  wire signed [DATA_W-1:0] IN1, IN2, IN3,
+    input  wire signed [DATA_W-1:0] W1,  W2,  W3,
+    output wire signed [ACC_W-1:0]  OUT1, OUT2, OUT3,
+    output wire signed [ACC_W-1:0]  OUT4, OUT5, OUT6,
+    output wire signed [ACC_W-1:0]  OUT7, OUT8, OUT9
 );
 
-    // ---------------------------------------------------------------
-    // Global freeze counter (single counter for the whole array).
-    // ---------------------------------------------------------------
-    // Width large enough to hold FREEZE_CYCLE.
-    localparam CNT_W = 5; // >= ceil(log2(FREEZE_CYCLE+1)); 5 bits covers up to 31
+    // global freeze counter
+    localparam CNT_W = 5;
     reg [CNT_W-1:0] cycle_count;
     wire accumulate_enable = (cycle_count < FREEZE_CYCLE);
 
     always @(posedge clk or negedge rstb) begin
         if (!rstb)
-            cycle_count <= {CNT_W{1'b0}};
+            cycle_count <= 0;
         else if (cycle_count < FREEZE_CYCLE)
-            cycle_count <= cycle_count + 1'b1; // saturate at FREEZE_CYCLE, then hold
+            cycle_count <= cycle_count + 1'b1;
     end
 
-    // ---------------------------------------------------------------
-    // Inter-PE wires. in_h[r][c] = input entering PE(r,c) from the left.
-    // w_v[r][c] = weight entering PE(r,c) from the top.
-    // out_w[r][c] = accumulator output of PE(r,c).
-    // ---------------------------------------------------------------
-    wire signed [DATA_W-1:0] in_h  [0:ROWS-1][0:COLS];   // [.][0]=row input, [.][c]=INR/INRR
-    wire signed [DATA_W-1:0] w_v   [0:ROWS][0:COLS-1];   // [0][.]=col weight, [r][.]=WR/WRR
-    wire signed [DATA_W-1:0] in_fwd[0:ROWS-1][0:COLS-1]; // registered input out of each PE
-    wire signed [DATA_W-1:0] w_fwd [0:ROWS-1][0:COLS-1]; // registered weight out of each PE
+    // inter-PE wires: in_h enters a PE from the left, w_v from the top
+    wire signed [DATA_W-1:0] in_h  [0:ROWS-1][0:COLS];
+    wire signed [DATA_W-1:0] w_v   [0:ROWS][0:COLS-1];
+    wire signed [DATA_W-1:0] in_fwd[0:ROWS-1][0:COLS-1];
+    wire signed [DATA_W-1:0] w_fwd [0:ROWS-1][0:COLS-1];
     wire signed [ACC_W-1:0]  out_w [0:ROWS-1][0:COLS-1];
 
-    // Row inputs feed the leftmost column.
+    // row inputs feed the left column, column weights feed the top row
     assign in_h[0][0] = IN1;
     assign in_h[1][0] = IN2;
     assign in_h[2][0] = IN3;
-    // Column weights feed the top row.
     assign w_v[0][0] = W1;
     assign w_v[0][1] = W2;
     assign w_v[0][2] = W3;
 
-    // ---------------------------------------------------------------
-    // Instantiate the 3x3 grid. The registered outputs of each PE become
-    // the (delayed) inputs to the neighbour to its right / below.
-    // ---------------------------------------------------------------
     genvar r, c;
     generate
         for (r = 0; r < ROWS; r = r + 1) begin : ROW
@@ -94,17 +65,12 @@ module mac_array #(
                     .w_out            (w_fwd[r][c]),
                     .OUT              (out_w[r][c])
                 );
-                // Forward delayed input to the PE on the right (next column).
-                assign in_h[r][c+1] = in_fwd[r][c];
-                // Forward delayed weight to the PE below (next row).
-                assign w_v[r+1][c]  = w_fwd[r][c];
+                assign in_h[r][c+1] = in_fwd[r][c];   // delayed input to the right
+                assign w_v[r+1][c]  = w_fwd[r][c];    // delayed weight downward
             end
         end
     endgenerate
 
-    // ---------------------------------------------------------------
-    // Output mapping: OUT1..3 row0, OUT4..6 row1, OUT7..9 row2.
-    // ---------------------------------------------------------------
     assign OUT1 = out_w[0][0];
     assign OUT2 = out_w[0][1];
     assign OUT3 = out_w[0][2];

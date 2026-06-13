@@ -1,16 +1,18 @@
 # Innovus place-and-route for mac_array (Nangate 45nm).
 # Source the Cadence env first:  source /vol/ece303/genus_tutorial/cadence.env
-# Then:  innovus> source backend/innovus_run.tcl
+# RUN THIS SCRIPT FROM INSIDE backend/  (cd backend; innovus; source innovus_run.tcl)
+# so that all outputs (.enc, netlists, .sdf, reports, timingReports/) land in backend/.
+# Input paths below are therefore relative to backend/ (../syn/... for frontend files).
 #
 # Before importing, add  inout VDD, VSS;  to the module header and port list in
-# syn/netlist/mac_array_syn.v, and make sure backend/mac_array.view points at
-# the synthesized SDC.
+# ../syn/netlist/mac_array_syn.v (done), and make sure backend/mac_array.view points
+# at the synthesized SDC (../syn/netlist/mac_array_syn.sdc).
 
 # --- design import ---
-set init_verilog        syn/netlist/mac_array_syn.v
+set init_verilog        ../syn/netlist/mac_array_syn.v
 set init_top_cell       mac_array
 set init_lef_file       /vol/ece303/genus_tutorial/NangateOpenCellLibrary.lef
-set init_mmmc_file      backend/mac_array.view
+set init_mmmc_file      mac_array.view
 set init_pwr_net        VDD
 set init_gnd_net        VSS
 init_design
@@ -35,6 +37,15 @@ globalNetConnect VSS -type tielo
 saveDesign mac_array_fl.enc
 
 # --- power rings / stripes / sroute ---
+# CAVEAT (tutorial update): the power stripe in the previous tutorial version sat at
+# Metal4, which is low -- power should normally be on a higher metal. The new version
+# moves it to Metal6 to avoid blocking main signal routing. Four commands change:
+# addRing, addStripe, sroute (below) and the routing-stage
+# "setNanoRouteMode -quiet -routeTopRoutingLayer 5" (this script currently uses 6).
+# The older Metal4 version below STILL WORKS for Lab3; the Metal6 version just gives a
+# cleaner design. We keep Metal4 here because the exact Metal6 command strings are not
+# in our tutorial copy -- do not retype them from memory. Swap them in only from the
+# current tutorial doc's exact lines if you want the cleaner design.
 addRing -nets {VSS VDD} -type core_rings -follow io -layer {top metal5 bottom metal5 left metal4 right metal4} -width {top 1 bottom 1 left 1 right 1} -spacing {top 1 bottom 1 left 1 right 1} -offset {top 0 bottom 0 left 0 right 0} -center 0 -extend_corner {} -threshold 0 -jog_distance 0 -snap_wire_center_to_grid None
 
 addStripe -block_ring_top_layer_limit metal5 -max_same_layer_jog_length 1.6 -padcore_ring_bottom_layer_limit metal3 -set_to_set_distance 5 -stacked_via_top_layer metal10 -padcore_ring_top_layer_limit metal5 -spacing 1 -xleft_offset 1 -merge_stripes_value 0.095 -layer metal4 -block_ring_bottom_layer_limit metal3 -width 1 -nets {VSS VDD} -stacked_via_bottom_layer metal1

@@ -5,10 +5,11 @@
 // Verification Directory fv/mac_array 
 
 module mac_array(clk, rstb, IN1, IN2, IN3, W1, W2, W3, OUT1, OUT2,
-     OUT3, OUT4, OUT5, OUT6, OUT7, OUT8, OUT9);
+     OUT3, OUT4, OUT5, OUT6, OUT7, OUT8, OUT9, VDD, VSS);
   input clk, rstb;
   input [7:0] IN1, IN2, IN3, W1, W2, W3;
   output [19:0] OUT1, OUT2, OUT3, OUT4, OUT5, OUT6, OUT7, OUT8, OUT9;
+  inout VDD, VSS;
   wire clk, rstb;
   wire [7:0] IN1, IN2, IN3, W1, W2, W3;
   wire [19:0] OUT1, OUT2, OUT3, OUT4, OUT5, OUT6, OUT7, OUT8, OUT9;

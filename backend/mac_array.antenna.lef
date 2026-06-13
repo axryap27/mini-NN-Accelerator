@@ -1,0 +1,14 @@
+
+
+# LEF File for Accumulated Process Antenna Effects at the Boundary Pins
+# *********************************************************************
+
+VERSION 5.5 ;
+NAMESCASESENSITIVE ON ;
+DIVIDERCHAR "/" ;
+BUSBITCHARS "[]" ;
+
+MACRO mac_array 
+END mac_array
+
+END LIBRARY
